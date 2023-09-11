@@ -169,3 +169,24 @@ def create_pyranges_from_polars_df(bed_df_pl: pl.DataFrame) -> pr.PyRanges:
     df_pr.__dict__["statistics"] = pr.statistics.StatisticsMethods
 
     return df_pr
+
+
+def create_polars_df_from_pyranges(gr: pr.PyRanges) -> pl.DataFrame:
+    """
+    Create Polars DataFrame from PyRanges DataFrame.
+
+    Parameters
+    ----------
+    gr
+        PyRanges object.
+
+    Returns
+    -------
+    Polars DataFrame.
+
+    """
+    per_chrom_or_chrom_strand_df_pd = {}
+    for key, per_chrom_df_pd in gr.items():
+        per_chrom_or_chrom_strand_df_pd[key] = pl.DataFrame(per_chrom_df_pd)
+
+    return pl.concat(per_chrom_or_chrom_strand_df_pd.values(), rechunk=False)
