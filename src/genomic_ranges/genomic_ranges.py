@@ -1,15 +1,82 @@
+from collections import namedtuple
+from typing import NamedTuple
+
+import numpy as np
 import polars as pl
 import pyranges as pr
 
 
-class _ranges:
-    contig: str
+Coordinates = NamedTuple(
+    "Coordinates", starts=np.ndarray, ends=np.ndarray, indexes=np.ndarray
+)
 
-    def __init__(self, df):
-        self.df = df
+
+class ContigRanges:
+    _df: pl.DataFrame
+    _meta: dict | None
+    _coordinates: Coordinates | None = None
+
+    def __init__(self, df, meta):
+        assert isinstance(meta, dict)
+        assert isinstance(df, pl.DataFrame)
+        self._meta = meta
+        self._df = df
 
     def get(self):
-        return self.df
+        return self._df.with_columns(
+            **{
+                key: pl.lit(val, dtype=pl.Categorical)
+                for key, val in self._meta.items()
+            }
+        ).select([*self._meta.keys(), *self._df.columns])
+
+    @property
+    def starts(self):
+        self._set_coordinates()
+        return self._coordinates.starts
+
+    @property
+    def ends(self):
+        self._set_coordinates()
+        return self._coordinates.ends
+
+    @property
+    def indexes(self):
+        self._set_coordinates()
+        return self._coordinates.indexes
+
+    @property
+    def coordinates(self) -> Coordinates:
+        """
+        Get start, end and index positions from per chromosome Polars dataframe.
+
+        Returns
+        -------
+        (starts, ends, indexes)
+            Tuple of numpy arrays with starts, ends and index positions
+            for the requested chromosome.
+
+        """
+        if self._coordinates is None:
+            self._coordinates = Coordinates(
+                *self._df.with_row_count()
+                .select(
+                    [
+                        pl.col("Start").cast(pl.Int64),
+                        pl.col("End").cast(pl.Int64),
+                        pl.col("row_nr").cast(pl.Int64),
+                    ]
+                )
+                .to_numpy()
+                .T
+            )
+        return self._coordinates
+
+    def __str__(self):
+        return self.get().__str__()
+
+    def __repr__(self):
+        return self.get().__repr__()
 
 
 class GenomicRanges:
