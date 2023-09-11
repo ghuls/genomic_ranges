@@ -41,8 +41,8 @@ Repository = "https://github.com/ghuls/genomic_ranges"
 Changelog = "https://github.com/ghuls/genomic_ranges/releases"
 
 [project.optional-dependencies]
-pandas = [""pandas == 1.5"]
-pyarrow = ["pyarrow >= 8.0.0"],
+pandas = ["pandas == 1.5"]
+pyarrow = ["pyarrow >= 8.0.0"]
 pyranges = ["pyranges"]
 
 

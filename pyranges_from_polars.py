@@ -5,7 +5,6 @@ import polars as pl
 import pyarrow as pa
 import pyranges as pr
 
-
 # Enable Polars global string cache so all categoricals are created with the same
 # string cache.
 pl.enable_string_cache(True)
