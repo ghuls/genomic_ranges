@@ -1,28 +1,27 @@
-from collections import namedtuple
 from typing import NamedTuple
 
 import numpy as np
 import polars as pl
 import pyranges as pr
+from ncls import NCLS
 
 
-Coordinates = NamedTuple(
-    "Coordinates", starts=np.ndarray, ends=np.ndarray, indexes=np.ndarray
-)
+class Coordinates(NamedTuple):
+    starts: np.ndarray
+    ends: np.ndarray
+    indexes: np.ndarray
 
 
 class ContigRanges:
-    _df: pl.DataFrame
-    _meta: dict | None
-    _coordinates: Coordinates | None = None
-
-    def __init__(self, df, meta):
+    def __init__(self, df: pl.DataFrame, meta: dict | None) -> None:
         assert isinstance(meta, dict)
         assert isinstance(df, pl.DataFrame)
         self._meta = meta
         self._df = df
+        self._coordinates: Coordinates | None = None
+        self._ncls: NCLS | None = None
 
-    def get(self):
+    def get(self) -> pl.DataFrame:
         return self._df.with_columns(
             **{
                 key: pl.lit(val, dtype=pl.Categorical)
@@ -31,22 +30,28 @@ class ContigRanges:
         ).select([*self._meta.keys(), *self._df.columns])
 
     @property
-    def starts(self):
+    def length(self):
+        return self._df.height
+
+    @property
+    def starts(self) -> np.ndarray:
         self._set_coordinates()
+        assert self._coordinates, Coordinates
         return self._coordinates.starts
 
     @property
-    def ends(self):
+    def ends(self) -> np.ndarray:
         self._set_coordinates()
+        assert self._coordinates, Coordinates
         return self._coordinates.ends
 
     @property
-    def indexes(self):
+    def indexes(self) -> np.ndarray:
         self._set_coordinates()
+        assert self._coordinates, Coordinates
         return self._coordinates.indexes
 
-    @property
-    def coordinates(self) -> Coordinates:
+    def _set_coordinates(self) -> None:
         """
         Get start, end and index positions from per chromosome Polars dataframe.
 
@@ -70,12 +75,17 @@ class ContigRanges:
                 .to_numpy()
                 .T
             )
-        return self._coordinates
 
-    def __str__(self):
+    @property
+    def ncls(self) -> None:
+        if not self._ncls:
+            self._ncls = NCLS(self.starts, self.ends, self.indexes)
+        return self._ncls
+
+    def __str__(self) -> str:
         return self.get().__str__()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.get().__repr__()
 
 
