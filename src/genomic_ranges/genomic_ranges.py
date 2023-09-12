@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Literal
 from typing_extensions import Self
 
@@ -15,6 +16,16 @@ class GenomicRanges:
                 contig_ranges = obj
             else:
                 raise NotImplementedError
+            # make sure all `contig_ranges` have the same keys in `._literals`
+            if len(contig_ranges) > 1:
+                ctg_rng_lst = list(contig_ranges.values())
+                literals = ctg_rng_lst[0]._literals.keys()
+                for ctg_rng in ctg_rng_lst[1:]:
+                    if ctg_rng._literals.keys() != literals:
+                        raise ValueError(
+                            "All elements passed to `GenomeRanges` must have the same "
+                            "literal columns."
+                        )
         elif isinstance(obj, pr.PyRanges):
             contig_ranges = {}
             for key, df in obj.dfs.items():
@@ -30,7 +41,6 @@ class GenomicRanges:
                 "`GenomicRanges` expects either a dictionary of polars "
                 "DataFrames or a PyRanges object as input."
             )
-        # TODO: make sure all cotig_ranges have the same keys in `._literals`
         self._contig_ranges = contig_ranges
 
     def _conc_dfs(self, **kwargs):
@@ -126,7 +136,7 @@ class GenomicRanges:
         regions2_coord: bool = False,
         regions1_suffix: str = "@1",
         regions2_suffix: str = "@2",
-    ) -> Self:
+    ) -> GenomicRanges:
         """
         Get overlapping subintervals between first set and second set of regions.
 
@@ -143,21 +153,21 @@ class GenomicRanges:
                 within region of second set.
               - ``"first"``: first overlap with second set of regions.
               - ``"last"``: last overlap with second set of regions.
-              - ``"outer"``: all regions for first and all regions of second (outer join).
-                If no overlap was found for a region, the other region set will contain
-                ``None`` for that entry.
-              - ``"left"``: all first set of regions and overlap with second set of regions
-                (left join).
-                If no overlap was found for a region in the first set, the second region
-                set will contain None for that entry.
-              - ``"right"``: all second set of regions and overlap with first set of regions
-                (right join).
-                If no overlap was found for a region in the second set, the first region
-                set will contain ``None`` for that entry.
+              - ``"outer"``: all regions for first and all regions of second (outer
+                join). If no overlap was found for a region, the other region set will
+                contain ``None`` for that entry.
+              - ``"left"``: all first set of regions and overlap with second set of
+                regions (left join). If no overlap was found for a region in the first
+                set, the second region set will contain None for that entry.
+              - ``"right"``: all second set of regions and overlap with first set of
+                regions (right join). If no overlap was found for a region in the second
+                set, the first region set will contain ``None`` for that entry.
         regions1_info
-            Add non-coordinate columns from first set of regions to output of intersection.
+            Add non-coordinate columns from first set of regions to output of
+            intersection.
         regions2_info
-            Add non-coordinate columns from first set of regions to output of intersection.
+            Add non-coordinate columns from first set of regions to output of
+            intersection.
         regions1_coord
             Add coordinates from first set of regions to output of intersection.
         regions2_coord
@@ -168,11 +178,11 @@ class GenomicRanges:
             Suffix added to coordinate and info columns of second set of regions.
 
         strandedness
-            Note: Not implemented yet.
-            {``None``, ``"same"``, ``"opposite"``, ``False``}, default ``None``, i.e. auto
-            Whether to compare PyRanges on the same strand, the opposite or ignore strand
-            information. The default, ``None``, means use ``"same"`` if both PyRanges are
-            stranded, otherwise ignore the strand information.
+            Note: Not implemented yet. {``None``, ``"same"``, ``"opposite"``,
+            ``False``}, default ``None``, i.e. auto Whether to compare PyRanges on the
+            same strand, the opposite or ignore strand information. The default,
+            ``None``, means use ``"same"`` if both PyRanges are stranded, otherwise
+            ignore the strand information.
 
         Returns
         -------
@@ -338,8 +348,8 @@ class GenomicRanges:
                     )
                 )
 
-                # Calculate intersection start and end coordinates and return the columns
-                # of interest.
+                # Calculate intersection start and end coordinates and return the
+                # columns of interest.
                 intersection_chrom_ldf_pl = (
                     intersection_chrom_df_pl.lazy()
                     .with_columns(
