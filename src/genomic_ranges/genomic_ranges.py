@@ -1,4 +1,5 @@
 from typing import Literal
+from typing_extensions import Self
 
 import polars as pl
 import pyranges as pr
@@ -125,7 +126,7 @@ class GenomicRanges:
         regions2_coord: bool = False,
         regions1_suffix: str = "@1",
         regions2_suffix: str = "@2",
-    ) -> GenomicRanges:
+    ) -> Self:
         """
         Get overlapping subintervals between first set and second set of regions.
 
