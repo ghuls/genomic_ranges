@@ -10,7 +10,10 @@ from genomic_ranges.methods.intersection import _intersection
 class GenomicRanges:
     def __init__(self, obj):
         if isinstance(obj, dict):
-            raise NotImplementedError
+            if all(list(isinstance(v, ContigRanges) for v in obj.values())):
+                contig_ranges = obj
+            else:
+                raise NotImplementedError
         elif isinstance(obj, pr.PyRanges):
             contig_ranges = {}
             for key, df in obj.dfs.items():
@@ -26,12 +29,12 @@ class GenomicRanges:
                 "`GenomicRanges` expects either a dictionary of polars "
                 "DataFrames or a PyRanges object as input."
             )
+        # TODO: make sure all cotig_ranges have the same keys in `._literals`
         self._contig_ranges = contig_ranges
 
     def _conc_dfs(self, **kwargs):
-        # return pl.concat(self.dfs.values(), **kwargs)
         with pl.StringCache():
-            return pl.concat(pl.from_arrow(df.to_arrow()) for df in self.dfs.values())
+            return pl.concat(self.dfs.values(), **kwargs)
 
     def __str__(self):
         # NOTE: this cats the dfs for now and we should find something more efficient
@@ -43,9 +46,19 @@ class GenomicRanges:
         comb = self._conc_dfs()
         return comb.__repr__()
 
-    def to_pyranges(self):
+    @property
+    def dfs(self):
+        return {k: v.df for k, v in self._contig_ranges.items()}
+
+    def to_pyranges(self, key_dict=None):
         """
         Create PyRanges object.
+
+        Parameters
+        -------
+        key_dict
+            Dictionary for renaming the corresponding GenomicRanges columns to
+            "Chromosome" and (optionally) "Strand" in the PyRanges object.
 
         Returns
         -------
@@ -53,7 +66,7 @@ class GenomicRanges:
 
         Examples
         --------
-        # TODO: fix examples to work with class
+        # TODO: fix examples to work with new interface
         Read BED file to Polars DataFrame with pyarrow engine.
 
         >>> bed_df_pl = read_bed_to_polars_df("test.bed", engine="pyarrow")
@@ -63,65 +76,44 @@ class GenomicRanges:
         >>> bed_df_pr = create_pyranges_from_polars_df(bed_df_pl=bed_df_pl)
 
         """
-        # Calling the PyRanges init function with a Pandas DataFrame causes too much
-        # overhead as it will create categorical columns for Chromosome and Strand columns,
-        # even if they are already categorical. It will also create a Pandas DataFrame per
-        # chromosome-strand (stranded) combination or a Pandas DataFrame per chromosome
-        # (unstranded). So instead, create the PyRanges object manually with the use of
-        # Polars and pyarrow.
+        dfs = {}
+        for cr in self._contig_ranges.values():
+            df = cr.df.to_pandas()
+            if key_dict is None and "Chromosome" not in df.columns:
+                raise ValueError(
+                    "Either a `key_dict` needs to be passed or a "
+                    "column 'Chromosome' needs to be present."
+                )
 
-        # Create empty PyRanges object, which will be populated later.
-        df_pr = pr.PyRanges()
-
-        # Check if there is a "Strand" column with only "+" and/or "-"
-        is_stranded = (
-            set(bed_df_pl.get_column("Strand").unique().to_list()).issubset({"+", "-"})
-            if "Strand" in bed_df_pl
-            else False
-        )
-
-        # Create PyArrow schema for Polars DataFrame, where categorical columns are cast
-        # from pa.dictionary(pa.uint32(), pa.large_string())
-        # to pa.dictionary(pa.int32(), pa.large_string())
-        # as for the later conversion to a Pandas DataFrame, only the latter is supported
-        # by pyarrow.
-        pa_schema_fixed_categoricals_list = []
-        for pa_field in bed_df_pl.head(1).to_arrow().schema:
-            if pa_field.type == pa.dictionary(pa.uint32(), pa.large_string()):
-                # ArrowTypeError: Converting unsigned dictionary indices to Pandas not yet
-                # supported, index type: uint32
-                pa_schema_fixed_categoricals_list.append(
-                    pa.field(
-                        pa_field.name, pa.dictionary(pa.int32(), pa.large_string())
+            if key_dict:
+                # the `key_dict` needs to contain 'Chromosome' and can contain 'Strand'
+                if "Chromosome" not in key_dict:
+                    raise ValueError(
+                        "`key_dict` needs to contain a value for 'Chromosome'."
                     )
-                )
+                chr_lit_val = cr._literals[key_dict["Chromosome"]]
+                strand_lit_val = None
+                df = df.rename(columns={key_dict["Chromosome"]: "Chromosome"})
+                if "Strand" in key_dict:
+                    strand_lit_val = cr._literals[key_dict["Strand"]]
+                    df = df.rename(columns={key_dict["Strand"]: "Strand"})
             else:
-                pa_schema_fixed_categoricals_list.append(
-                    pa.field(pa_field.name, pa_field.type)
-                )
+                chr_lit_val = cr._literals["Chromosome"]
+                strand_lit_val = cr._literals.get("Strand")
 
-        # Add entry for index as last column.
-        pa_schema_fixed_categoricals_list.append(
-            pa.field("__index_level_0__", pa.int64())
-        )
+            key = chr_lit_val
+            if strand_lit_val is not None:
+                key = (chr_lit_val, strand_lit_val)
+            dfs[key] = df
 
-        # Create pyarrow schema so categorical columns in chromosome-strand Polars
-        # DataFrames or chromosome Polars DataFrames can be cast to a pyarrow supported
-        # dictionary type, which can be converted to a Pandas categorical.
-        pa_schema_fixed_categoricals = pa.schema(pa_schema_fixed_categoricals_list)
+        # create empty PyRanges object to populate later
+        pr_obj = pr.PyRanges()
 
-        # Add (row) index column to Polars DataFrame with BED entries so original row
-        # indexes of BED entries can be tracked by PyRanges (not sure if pyranges uses
-        # those index values or not).
-        bed_with_idx_df_pl = (
-            bed_df_pl
-            # Add index column and cast it from UInt32 to Int64
-            .with_row_count("__index_level_0__").with_columns(
-                pl.col("__index_level_0__").cast(pl.Int64)
-            )
-            # Put index column as last column.
-            .select(pl.col(pa_schema_fixed_categoricals.names))
-        )
+        pr_obj.__dict__["dfs"] = dfs
+        pr_obj.__dict__["features"] = pr.genomicfeatures.GenomicFeaturesMethods(pr_obj)
+        pr_obj.__dict__["stats"] = pr.statistics.StatisticsMethods(pr_obj)
+
+        return pr_obj
 
     def intersection(
         self,
@@ -133,7 +125,7 @@ class GenomicRanges:
         regions2_coord: bool = False,
         regions1_suffix: str = "@1",
         regions2_suffix: str = "@2",
-    ) -> pl.DataFrame:
+    ) -> GenomicRanges:
         """
         Get overlapping subintervals between first set and second set of regions.
 
