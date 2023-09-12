@@ -5,19 +5,23 @@ import pyranges as pr
 class GenomicRanges:
     def __init__(self, obj):
         if isinstance(obj, dict):
-            # TODO: check the dict values are all pl.DataFrame
-            dfs = obj.dfs
+            raise NotImplementedError
         elif isinstance(obj, pr.PyRanges):
-            # with pl.StringCache():
-            dfs = {}
-            for key, val in obj.dfs.items():
-                dfs[key] = pl.from_pandas(val)
+            contig_ranges = {}
+            for key, df in obj.dfs.items():
+                if isinstance(key, tuple):
+                    literals = {"Chromosome": key[0], "Strand": key[1]}
+                else:
+                    literals = {"Chromosome": key}
+                contig_ranges[key] = ContigRanges(
+                    pl.from_pandas(df.drop(columns=literals.keys())), literals
+                )
         else:
             raise ValueError(
                 "`GenomicRanges` expects either a dictionary of polars "
                 "DataFrames or a PyRanges object as input."
             )
-        self.dfs = dfs
+        self._contig_ranges = contig_ranges
 
     def _conc_dfs(self, **kwargs):
         # return pl.concat(self.dfs.values(), **kwargs)
