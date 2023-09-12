@@ -73,7 +73,7 @@ class ContigRanges:
         return self._coordinates
 
     @property
-    def ncls(self) -> None:
+    def ncls(self) -> NCLS:
         if not self._ncls:
             self._ncls = NCLS(self.starts, self.ends, self.indexes)
         return self._ncls
