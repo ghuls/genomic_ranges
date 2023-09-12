@@ -52,6 +52,9 @@ pyranges = ["pyranges"]
 # ... other project metadata fields as specified in:
 #     https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 
+[tool.mypy]
+files = ["src/genomic_ranges"]
+
 # [tool.mypy]
 # files = ["polars", "tests"]
 # strict = true
