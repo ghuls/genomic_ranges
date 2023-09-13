@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Literal
-from typing_extensions import Self
 
 import polars as pl
 import pyranges as pr
@@ -10,7 +9,14 @@ from genomic_ranges.methods.intersection import _intersection
 
 
 class GenomicRanges:
+    # Make sure all Categorical columns for all GenomicRanges objects are created with
+    # the same Polars string cache.
+    _string_cache = pl.StringCache()
+
     def __init__(self, obj):
+        # Use same Polars string cache for each GenomicRanges object.
+        GenomicRanges._string_cache.__enter__()
+
         if isinstance(obj, dict):
             if all(list(isinstance(v, ContigRanges) for v in obj.values())):
                 contig_ranges = obj
