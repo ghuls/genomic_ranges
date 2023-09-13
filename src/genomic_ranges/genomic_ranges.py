@@ -5,6 +5,7 @@ import polars as pl
 import pyranges as pr
 
 from genomic_ranges.contig_ranges import ContigRanges
+from genomic_ranges.io import read_bed_to_polars_df
 from genomic_ranges.methods.intersection import _intersection
 
 
@@ -12,6 +13,18 @@ class GenomicRanges:
     # Make sure all Categorical columns for all GenomicRanges objects are created with
     # the same Polars string cache.
     _string_cache = pl.StringCache()
+
+    @classmethod
+    def from_bed(
+        cls,
+        bed_filename: str,
+        engine: str | Literal["polars"] | Literal["pyarrow"] = "pyarrow",
+        min_column_count: int = 3,
+    ) -> GenomicRanges:
+        cls._string_cache.__enter__()
+        return GenomicRanges(
+            read_bed_to_polars_df(bed_filename, engine, min_column_count)
+        )
 
     def __init__(self, obj, grouped=None):
         # Use same Polars string cache for each GenomicRanges object.
