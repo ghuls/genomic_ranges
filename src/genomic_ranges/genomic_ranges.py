@@ -123,13 +123,13 @@ class GenomicRanges:
                 if "Strand" in key_dict:
                     strand_lit_val = cr._literals[key_dict["Strand"]]
                     df = df.rename(columns={key_dict["Strand"]: "Strand"})
-                    df["Strand"] = df["Strand"].astype(
-                        CategoricalDtype([".", "-", "+"], ordered=True)
-                    )
             else:
                 chr_lit_val = cr._literals["Chromosome"]
                 strand_lit_val = cr._literals.get("Strand")
-
+            if "Strand" in df.columns:
+                df["Strand"] = df["Strand"].astype(
+                    CategoricalDtype([".", "-", "+"], ordered=True)
+                )
             key = chr_lit_val
             if strand_lit_val is not None:
                 key = (chr_lit_val, strand_lit_val)
