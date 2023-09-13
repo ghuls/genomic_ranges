@@ -27,7 +27,12 @@ class ContigRanges:
                 key: pl.lit(val, dtype=pl.Categorical)
                 for key, val in self._literals.items()
             }
-        ).select([*self._literals.keys(), *self._df.columns])
+        ).select(
+            [
+                *self._literals.keys(),
+                *[c for c in self._df.columns if c not in self._literals],
+            ]
+        )
 
     @property
     def length(self):
