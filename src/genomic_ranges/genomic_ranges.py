@@ -17,7 +17,9 @@ class GenomicRanges:
         # Use same Polars string cache for each GenomicRanges object.
         GenomicRanges._string_cache.__enter__()
 
-        if isinstance(obj, dict):
+        if not obj:
+            contig_ranges = None
+        elif isinstance(obj, dict):
             if all(list(isinstance(v, ContigRanges) for v in obj.values())):
                 contig_ranges = obj
             else:
@@ -50,17 +52,22 @@ class GenomicRanges:
         self._contig_ranges = contig_ranges
 
     def _conc_dfs(self, **kwargs):
-        with pl.StringCache():
-            return pl.concat(self.dfs.values(), **kwargs)
+        if len(self.dfs) == 0:
+            return pl.DataFrame()
+        return pl.concat(self.dfs.values(), **kwargs)
 
     def __str__(self):
+        if not self._contig_ranges:
+            return "Empty GenomicRanges"
         # NOTE: this cats the dfs for now and we should find something more efficient
-        comb = self._conc_dfs()
+        comb = self._conc_dfs(rechunk=False)
         return comb.__str__()
 
     def __repr__(self):
+        if not self._contig_ranges:
+            return "Empty GenomicRanges"
         # NOTE: this cats the dfs for now and we should find something more efficient
-        comb = self._conc_dfs()
+        comb = self._conc_dfs(rechunk=False)
         return comb.__repr__()
 
     @property
