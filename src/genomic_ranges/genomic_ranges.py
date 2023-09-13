@@ -148,7 +148,7 @@ class GenomicRanges:
 
         return pr_obj
 
-    def intersection(
+    def intersect(
         self,
         other: "GenomicRanges",
         how: Literal["all", "containment", "first", "last"] | str | None = None,
