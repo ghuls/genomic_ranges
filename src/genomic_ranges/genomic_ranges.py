@@ -100,6 +100,8 @@ class GenomicRanges:
         >>> bed_df_pr = create_pyranges_from_polars_df(bed_df_pl=bed_df_pl)
 
         """
+        from pandas.api.types import CategoricalDtype
+
         dfs = {}
         for cr in self._contig_ranges.values():
             df = cr.df.to_pandas()
@@ -121,6 +123,9 @@ class GenomicRanges:
                 if "Strand" in key_dict:
                     strand_lit_val = cr._literals[key_dict["Strand"]]
                     df = df.rename(columns={key_dict["Strand"]: "Strand"})
+                    df["Strand"] = df["Strand"].astype(
+                        CategoricalDtype([".", "-", "+"], ordered=True)
+                    )
             else:
                 chr_lit_val = cr._literals["Chromosome"]
                 strand_lit_val = cr._literals.get("Strand")
