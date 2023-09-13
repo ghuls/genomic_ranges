@@ -71,6 +71,10 @@ class GenomicRanges:
         return comb.__repr__()
 
     @property
+    def df(self):
+        return pl.concat(self.dfs.values())
+
+    @property
     def dfs(self):
         return {k: v.df for k, v in self._contig_ranges.items()}
 
