@@ -173,6 +173,7 @@ class GenomicRanges:
             else:
                 chr_lit_val = cr._literals["Chromosome"]
                 strand_lit_val = cr._literals.get("Strand")
+            df["Chromosome"] = df["Chromosome"].cat.remove_unused_categories()
             if "Strand" in df.columns:
                 df["Strand"] = df["Strand"].astype(
                     CategoricalDtype([".", "-", "+"], ordered=True)
