@@ -13,12 +13,42 @@ class GenomicRanges:
     # the same Polars string cache.
     _string_cache = pl.StringCache()
 
-    def __init__(self, obj):
+    def __init__(self, obj, grouped=None):
         # Use same Polars string cache for each GenomicRanges object.
         GenomicRanges._string_cache.__enter__()
 
-        if not obj:
+        if obj is None:
             contig_ranges = None
+        elif isinstance(obj, pl.DataFrame):
+            if not grouped:
+                grouped = [
+                    c
+                    for c in obj.columns
+                    if c in {"Chromosome", "chromosome", "chrom", "Strand", "strand"}
+                ]
+            if len(grouped) == 0:
+                raise ValueError(
+                    "No Chromosome column found in input dataframe. Specify Chromosome and/or Strand column names via grouped keyword."
+                )
+            contig_ranges = {
+                values: ContigRanges(
+                    df,
+                    {
+                        k: v
+                        for k, v in zip(
+                            grouped,
+                            [
+                                [value for value in values]
+                                if isinstance(values, tuple)
+                                else [values]
+                            ],
+                        )
+                    },
+                )
+                for values, df in obj.partition_by(
+                    grouped, as_dict=True, maintain_order=True
+                ).items()
+            }
         elif isinstance(obj, dict):
             if all(list(isinstance(v, ContigRanges) for v in obj.values())):
                 contig_ranges = obj
